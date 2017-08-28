@@ -10,12 +10,23 @@ import (
 
 type RedisCache struct {
 	c               *redis.Client
-	Prefix          string
-	DefaultHsetName string
+	prefix          string
+	defaultHsetName string
+}
+
+func (c *RedisCache) GetClinet() *redis.Client{
+	return c.c
+}
+
+func (c *RedisCache) SetNX(key string, value interface{}, expiration time.Duration) *redis.BoolCmd {
+	return c.c.SetNX(key, value, expiration)
+}
+func (c *RedisCache) Eval(script string, keys []string, args ...interface{}) *redis.Cmd {
+	return c.c.Eval(script, keys, args...)
 }
 
 func (c *RedisCache) Expire(key string, duration time.Duration) error {
-	key = c.Prefix + key
+	key = c.prefix + key
 	return c.c.Expire(key, duration).Err()
 }
 
@@ -28,12 +39,15 @@ func (c *RedisCache) HSetWithDuration(key string, array map[string]interface{}, 
 }
 
 func (c *RedisCache) HSet(key string, array map[string]interface{}) error {
-	ks := strings.Split(key, ":")
-	hset_name := c.DefaultHsetName
-	if len(ks) > 1 {
-		hset_name = ks[0]
+	hset_name := c.defaultHsetName
+
+	index := strings.LastIndex(key, ":")
+	rs := []rune(key)
+	if index > 0 {
+		hset_name = string(rs[:index])
 	}
-	key = c.Prefix + key
+
+	key = c.prefix + key
 
 	var cmd *redis.BoolCmd
 	_, err := c.c.TxPipelined(func(pipe *redis.Pipeline) error {
@@ -56,27 +70,32 @@ func (c *RedisCache) HSet(key string, array map[string]interface{}) error {
 	return err
 }
 
-func (c *RedisCache) HGetAll(key string) interface{} {
-	key = c.Prefix + key
+func (c *RedisCache) HGetAll(key string) map[string]string {
+	key = c.prefix + key
 	val, err := c.c.HGetAll(key).Result()
 	if err != nil {
+		fmt.Errorf("redis HGetAll %v", err)
 		return nil
 	}
-	return val
+	if len(val) > 0 {
+		return val
+	}
+	return nil
 }
 
 func (c *RedisCache) HGet(key string, field string) interface{} {
-	key = c.Prefix + key
+	key = c.prefix + key
 	val, err := c.c.HGet(key, field).Result()
 	if err != nil {
+		fmt.Errorf("redis HGet %v", err)
 		return nil
 	}
 	return val
 }
 
-func (c *RedisCache) GetField(prefix string, key string, field string) interface{} {
-	key = c.Prefix + prefix + ":" + key
-	val, err := c.c.HGet(key, field).Result()
+// no prefix len
+func (c *RedisCache) HLen(key string) interface{} {
+	val, err := c.c.HLen(key).Result()
 	if err != nil {
 		return nil
 	}
@@ -85,12 +104,14 @@ func (c *RedisCache) GetField(prefix string, key string, field string) interface
 
 // If expired is 0, it lives forever.
 func (c *RedisCache) Set(key string, val interface{}, expire time.Duration) error {
-	ks := strings.Split(key, ":")
-	hset_name := c.DefaultHsetName
-	if len(ks) > 1 {
-		hset_name = ks[0]
+	hset_name := c.defaultHsetName
+	index := strings.LastIndex(key, ":")
+	rs := []rune(key)
+	if index > 0 {
+		hset_name = string(rs[:index])
 	}
-	key = c.Prefix + key
+
+	key = c.prefix + key
 	if err := c.c.Set(key, com.ToStr(val), expire).Err(); err != nil {
 		return err
 	}
@@ -99,24 +120,27 @@ func (c *RedisCache) Set(key string, val interface{}, expire time.Duration) erro
 }
 
 func (c *RedisCache) Get(key string) interface{} {
-	val, err := c.c.Get(c.Prefix + key).Result()
+	val, err := c.c.Get(c.prefix + key).Result()
 	if err != nil {
+		fmt.Println(err)
 		return nil
 	}
 	return val
 }
 
 func (c *RedisCache) Delete(key string) error {
-	key = c.Prefix + key
+	key = c.prefix + key
 	if err := c.c.Del(key).Err(); err != nil {
 		return err
 	}
 
-	ks := strings.Split(key, ":")
-	hset_name := c.DefaultHsetName
-	if len(ks) > 1 {
-		hset_name = ks[0]
+	hset_name := c.defaultHsetName
+	index := strings.LastIndex(key, ":")
+	rs := []rune(key)
+	if index > 0 {
+		hset_name = string(rs[:index])
 	}
+
 	return c.c.HDel(hset_name, key).Err()
 }
 
@@ -124,35 +148,45 @@ func (c *RedisCache) Incr(key string) error {
 	if !c.IsExist(key) {
 		return fmt.Errorf("key '%s' not exist", key)
 	}
-	return c.c.Incr(c.Prefix + key).Err()
+	return c.c.Incr(c.prefix + key).Err()
 }
 
 func (c *RedisCache) Decr(key string) error {
 	if !c.IsExist(key) {
 		return fmt.Errorf("key '%s' not exist", key)
 	}
-	return c.c.Decr(c.Prefix + key).Err()
+	return c.c.Decr(c.prefix + key).Err()
+}
+
+// IsExistHset returns true if hset value exists.
+func (c *RedisCache) IsExistHset(hsetname string) bool {
+	if c.c.Exists(hsetname).Val() {
+		return true
+	}
+	return false
 }
 
 // IsExist returns true if cached value exists.
 func (c *RedisCache) IsExist(key string) bool {
-	if c.c.Exists(c.Prefix + key).Val() {
+	if c.c.Exists(c.prefix + key).Val() {
 		return true
 	}
 
-	ks := strings.Split(key, ":")
-	hset_name := c.DefaultHsetName
-	if len(ks) > 1 {
-		hset_name = ks[0]
+	hset_name := c.defaultHsetName
+	index := strings.LastIndex(key, ":")
+	rs := []rune(key)
+	if index > 0 {
+		hset_name = string(rs[:index])
 	}
-	c.c.HDel(hset_name, c.Prefix+key)
+
+	c.c.HDel(hset_name, c.prefix+key)
 	return false
 }
 
 // Flush deletes all cached data.
 func (c *RedisCache) Flush(hsetname string) error {
 	if strings.EqualFold(hsetname, "") {
-		hsetname = c.DefaultHsetName
+		hsetname = c.defaultHsetName
 	}
 
 	keys, err := c.c.HKeys(hsetname).Result()
@@ -171,7 +205,7 @@ func (c *RedisCache) FlushDB() error {
 
 // StartAndGC starts GC routine based on config string settings.
 func (c *RedisCache) StartAndGC(option map[string]string) (err error) {
-	c.DefaultHsetName = "RedisCache"
+	c.defaultHsetName = "RedisCache"
 
 	opt := &redis.Options{
 		Network: "tcp",
@@ -194,9 +228,9 @@ func (c *RedisCache) StartAndGC(option map[string]string) (err error) {
 				return fmt.Errorf("error parsing idle timeout: %v", err)
 			}
 		case "hset_name":
-			c.DefaultHsetName = v
+			c.defaultHsetName = v
 		case "prefix":
-			c.Prefix = v
+			c.prefix = v
 		default:
 			return fmt.Errorf("redis: unsupported option '%s'", k)
 		}

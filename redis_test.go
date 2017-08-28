@@ -3,6 +3,8 @@ package redis
 import (
 	"testing"
 	"fmt"
+	"strings"
+	"github.com/Unknwon/com"
 )
 
 //
@@ -37,6 +39,19 @@ func benchmarkRedisClient(poolSize string) *RedisCache {
 	return redis
 }
 
+func TestInit2(t *testing.T) {
+	//str:= "activity:1:10001"
+	str:= "1:2:3"
+	index := strings.LastIndex(str,":")
+	rs := []rune(str)
+
+	if index > 0{
+		str= string(rs[:index])
+	}
+
+	fmt.Println(str)
+}
+
 func TestInit(t *testing.T) {
 	//data := map[string]string{
 	//	"host":         "192.168.1.204:6379",
@@ -50,17 +65,31 @@ func TestInit(t *testing.T) {
 	//}
 
 	redis := benchmarkRedisClient("100")
-	err := redis.HSet("act:10001", map[string]interface{}{
-		//"parent": "papa",
-		"name": "10001",
-	})
-	fmt.Println(err)
+	//err := redis.HSet("act:10001", map[string]interface{}{
+	//	//"parent": "papa",
+	//	"name": "10001",
+	//})
+	//fmt.Println(err)
 
 	v := redis.HGetAll("act:10001")
-	fmt.Println(v)
+	fmt.Println(len(v))
 
-	v = redis.HGet("act:10001","name")
-	fmt.Println(v)
+	s := redis.HGet("act:10001","name")
+	fmt.Println(s)
+	var mygoods int
+	fmt.Println(mygoods)
+
+	if goods := redis.HGet("activity:1:10002", "goods"); goods != nil {
+		fmt.Println("goods:")
+
+
+		mygoods2, _ := com.StrTo(com.ToStr(goods)).Int()
+		fmt.Println(mygoods2)
+
+	}
+
+	redis.Flush("activity:1")
+
 
 }
 
