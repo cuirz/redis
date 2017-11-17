@@ -104,6 +104,7 @@ func (c *RedisCache) HLen(key string) interface{} {
 
 // If expired is 0, it lives forever.
 func (c *RedisCache) Set(key string, val interface{}, expire time.Duration) error {
+	key = c.prefix + key
 	hset_name := c.defaultHsetName
 	index := strings.LastIndex(key, ":")
 	rs := []rune(key)
@@ -111,7 +112,6 @@ func (c *RedisCache) Set(key string, val interface{}, expire time.Duration) erro
 		hset_name = string(rs[:index])
 	}
 
-	key = c.prefix + key
 	if err := c.c.Set(key, com.ToStr(val), expire).Err(); err != nil {
 		return err
 	}
@@ -122,7 +122,7 @@ func (c *RedisCache) Set(key string, val interface{}, expire time.Duration) erro
 func (c *RedisCache) Get(key string) interface{} {
 	val, err := c.c.Get(c.prefix + key).Result()
 	if err != nil {
-		fmt.Println(err)
+		//fmt.Println(err)
 		return nil
 	}
 	return val
@@ -168,7 +168,8 @@ func (c *RedisCache) IsExistHset(hsetname string) bool {
 
 // IsExist returns true if cached value exists.
 func (c *RedisCache) IsExist(key string) bool {
-	if c.c.Exists(c.prefix + key).Val() {
+	key = c.prefix + key
+	if c.c.Exists(key).Val() {
 		return true
 	}
 
@@ -179,7 +180,7 @@ func (c *RedisCache) IsExist(key string) bool {
 		hset_name = string(rs[:index])
 	}
 
-	c.c.HDel(hset_name, c.prefix+key)
+	c.c.HDel(hset_name, key)
 	return false
 }
 
