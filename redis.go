@@ -14,7 +14,7 @@ type RedisCache struct {
 	defaultHsetName string
 }
 
-func (c *RedisCache) GetClinet() *redis.Client{
+func (c *RedisCache) GetClinet() *redis.Client {
 	return c.c
 }
 
@@ -36,6 +36,34 @@ func (c *RedisCache) HSetWithDuration(key string, array map[string]interface{}, 
 		return err
 	}
 	return c.Expire(key, duration)
+}
+
+func (c *RedisCache) HSetField(key, field string, value interface{}) error {
+	hset_name := c.defaultHsetName
+
+	index := strings.LastIndex(key, ":")
+	rs := []rune(key)
+	if index > 0 {
+		hset_name = string(rs[:index])
+	}
+
+	key = c.prefix + key
+	var cmd *redis.BoolCmd
+	_, err := c.c.TxPipelined(func(pipe *redis.Pipeline) error {
+		cmd = pipe.HSet(hset_name, key, "0")
+		if cmd.Err() != nil {
+			return cmd.Err()
+		}
+
+		if err := pipe.HSet(key, field, value).Err(); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		fmt.Println(err)
+	}
+	return err
 }
 
 func (c *RedisCache) HSet(key string, array map[string]interface{}) error {
