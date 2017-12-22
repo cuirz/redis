@@ -14,7 +14,7 @@ type RedisCache struct {
 	defaultHsetName string
 }
 
-func (c *RedisCache) GetClinet() *redis.Client {
+func (c *RedisCache) GetClient() *redis.Client {
 	return c.c
 }
 
