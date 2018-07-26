@@ -12,7 +12,10 @@ type RedisCache struct {
 	c               *redis.Client
 	prefix          string
 	defaultHsetName string
+
+	Z redis.Z
 }
+
 
 func (c *RedisCache) GetClient() *redis.Client {
 	return c.c
