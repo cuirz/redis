@@ -1,10 +1,10 @@
 package redis
 
 import (
-	"testing"
 	"fmt"
+	"github.com/unknwon/com"
 	"strings"
-	"github.com/Unknwon/com"
+	"testing"
 )
 
 //
@@ -41,12 +41,12 @@ func benchmarkRedisClient(poolSize string) *RedisCache {
 
 func TestInit2(t *testing.T) {
 	//str:= "activity:1:10001"
-	str:= "1:2:3"
-	index := strings.LastIndex(str,":")
+	str := "1:2:3"
+	index := strings.LastIndex(str, ":")
 	rs := []rune(str)
 
-	if index > 0{
-		str= string(rs[:index])
+	if index > 0 {
+		str = string(rs[:index])
 	}
 
 	fmt.Println(str)
@@ -74,7 +74,7 @@ func TestInit(t *testing.T) {
 	v := redis.HGetAll("act:10001")
 	fmt.Println(len(v))
 
-	s := redis.HGet("act:10001","name")
+	s := redis.HGet("act:10001", "name")
 	fmt.Println(s)
 	var mygoods int
 	fmt.Println(mygoods)
@@ -82,14 +82,12 @@ func TestInit(t *testing.T) {
 	if goods := redis.HGet("activity:1:10002", "goods"); goods != nil {
 		fmt.Println("goods:")
 
-
 		mygoods2, _ := com.StrTo(com.ToStr(goods)).Int()
 		fmt.Println(mygoods2)
 
 	}
 
 	redis.Flush("activity:1")
-
 
 }
 
