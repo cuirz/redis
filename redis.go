@@ -3,7 +3,7 @@ package redis
 import (
 	"fmt"
 	"time"
-	"github.com/Unknwon/com"
+	"github.com/unknwon/com"
 	"gopkg.in/redis.v5"
 	"strings"
 )
